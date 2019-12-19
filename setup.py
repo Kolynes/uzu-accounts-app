@@ -11,7 +11,7 @@ setup(
     author = 'Collins C. Chinedu (Kolynes)',                   
     author_email = 'collinschinedu@uzucorp.com',      
     url = 'https://github.com/Kolynes/uzu-accounts-app.git',   
-    download_url = 'https://github.com/Kolynes/uzu-accounts-app/archive/1.0.tar.gz',    
+    download_url = 'https://github.com/Kolynes/uzu-accounts-app/archive/v1.0.tar.gz',    
     keywords = ['Authentication', 'Django', 'Account Verification'],   
     classifiers=[
         'Development Status :: 3 - Alpha',      
