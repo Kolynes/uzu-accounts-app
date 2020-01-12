@@ -66,7 +66,7 @@ class ResetPasswordViewTestCase(TestCase):
     def test_true_response(self):
         user = models.User.objects.create_user(username="Kolynes", password="password")
         verification = models.Verification.objects.create(user=user, code="1234")
-        response = self.client.post("/reset-password/", data={"username": "Kolynes", "code": "1234", "new-password": "1234"})
+        response = self.client.post("/reset-password/", data={"username": "Kolynes", "code": "1234", "new_password": "1234"})
         json_response = json.loads(response.content)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json_response["status"], True)

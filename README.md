@@ -7,17 +7,6 @@ uzu-accounts-app is a generic django application tailored to Single Page Applica
 uzu-accounts-app will use the model set with `AUTH_USER_MODEL` in settings.py of your django project or the default user model of `django.contrib.auth`
 
 
-Also note that uzu-accounts-app requires that the authentication model used has the following fields;
-
-````
-first_name
-last_name
-email
-username
-password
-````
-uzu-accounts-app also enforces a unique contraint on accounts' `email` fields.
-
 ## Installation
 
 Download and install the package from PyPi:
@@ -61,11 +50,11 @@ The app communicates with the client-side using basic api calls.
 
 API responses have the following basic format:
 ````javascript
-	{
-		status: Boolean,         //  status of the API call
-		data: Object,  			 //  payload
-		error: String            //  error string in case an error occurs (status == False)
-	}
+{
+	status: Boolean,         //  status of the API call
+	data: Object,  			 //  payload
+	error: String            //  error string in case an error occurs (status == False)
+}
 ````
 
 
@@ -76,46 +65,41 @@ NB: The illustrations below assume that the app's urls were mapped to the `accou
 #### 1. sign-in
 
 ````javascript
-	axios.post("/accounts/sign-in/", {
-		username: "",			// this could be username or email
-		password: "",
-		keepSignedIn: true 		// keeps the user signed in (optional)
- 	})
+axios.post("/accounts/sign-in/", {
+	...accountFields,
+	keep_signed_in: true 		// keeps the user signed in (optional)
+})
 ````
 
 
 #### 2. sign-up
 
 ````javascript
-	axios.post("/accounts/sign-up/", {
-		username: "",
-		email: "",
-		first_name: "",
-		last_name: "",
-		password: "",
-		keepSignedIn: true 		// keeps the user signed in (optional)
- 	})
+axios.post("/accounts/sign-up/", {
+	...accountFields,
+	keep_signed_in: true 		// keeps the user signed in (optional)
+})
 ````
 
 
 #### 3. sign-out
 ````javascript
-	axios.get("/accounts/sign-out/")
+axios.get("/accounts/sign-out/")
 ````
 
 
 #### 4. authenticate
 ````javascript
-	axios.post("/accounts/authenticate/", {
-		password: ""
-	})
+axios.post("/accounts/authenticate/", {
+	password: ""
+})
 ````
 
 
 #### 5. reset-password
 ````javascript
 	axios.post("/accounts/reset-password/", {
-		username: "",
+		username: "",		// field value used for authentication as set by user_model.USERNAME_FIELD
 		code: "",			// verification code. This comes from send-verification-code 
 		newPassword: "",
 	})
@@ -125,8 +109,8 @@ NB: The illustrations below assume that the app's urls were mapped to the `accou
 #### 6. change-password
 ````javascript
 	axios.post("/accounts/change-password/", {
-		newPassword: "",
-		oldPassword: ""
+		new_password: "",
+		old_password: ""
 	})
 ````
 
@@ -140,7 +124,7 @@ NB: The illustrations below assume that the app's urls were mapped to the `accou
 
 #### 8. send-verification-link
 ````javascript
-	axios.post("/accounts/send-verification-code/", {
+	axios.post("/accounts/send-verification-link/", {
 		username: "",		// optional username (will use request.user.username if a user is signed in when this field is not specified. Fails otherwise)
 		mode: "",			// (send || resend) optional mode (will use 'resend' by default, if set to 'send', the verification code is updated before sending) 
 	})

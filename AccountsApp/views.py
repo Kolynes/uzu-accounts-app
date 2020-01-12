@@ -22,14 +22,16 @@ def create_verification(request):
     username = request.POST.get("username")
     if username:
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(**{
+                User.USERNAME_FIELD: username
+            })
         except User.DoesNotExist:
             return json_response(False, error="Account not found")
     else:
         user = request.user
     verification, created = models.Verification.objects.get_or_create(user=user)
     if created or not verification.username_signature:
-        verification.username_signature = signing.Signer().signature(user.username)
+        verification.username_signature = signing.Signer().signature(user.get_username())
     if request.POST.get("mode", "") == "send":
         verification.code = code_generator.generate_number_code(settings.ACCOUNTS_APP["code_length"])
     verification.code_signature = signing.Signer().signature(verification.code)
@@ -53,10 +55,10 @@ def send_verification_code(request):
     verification = create_verification(request)
     if type(verification) is not models.Verification:
         return verification
-    message = "Hello %s,\n\tYour verification code is %s" %(verification.user.first_name, verification.code)
+    message = "Your verification code is %s" %(verification.code)
     verification.recovery = True
     verification.save()
-    error = "Failed to send verification code to %s <%s> by email\n %s" %(verification.user.username, verification.user.email, "%s")
+    error = "Failed to send verification code to %s <%s> by email\n %s" %(verification.user.__dict__[User.USERNAME_FIELD], verification.user.__dict__[User.get_email_field_name()], "%s")
     Thread(target=lambda: send_verification_mail(verification, "Account Verification", message, error)).start()
     return json_response(True)
 
@@ -67,10 +69,10 @@ def send_verification_link(request):
     verification = create_verification(request)
     if type(verification) is not models.Verification:
         return verification
-    message = "Hello %s,\n\tPlease follow the link below to verify your account\n %s/%s/verify-link/?u=%s&c=%s" %(verification.user.first_name, request.META["HTTP_HOST"], settings.ACCOUNTS_APP["base_url"], verification.username_signature, verification.code_signature)
+    message = "Please follow the link below to verify your account\n %s/%s/verify-link/?u=%s&c=%s" %(request.META["HTTP_HOST"], settings.ACCOUNTS_APP["base_url"], verification.username_signature, verification.code_signature)
     verification.recovery = True
     verification.save()
-    error = "Failed to send verification code to %s <%s> by email\n %s" %(verification.user.username, verification.user.email, "%s")
+    error = "Failed to send verification code to %s <%s> by email\n %s" %(verification.user.__dict__[User.USERNAME_FIELD], verification.user.__dict__[User.get_email_field_name()], "%s")
     Thread(target=lambda: send_verification_mail(verification, "Account Verification", message, error)).start()
     return json_response(True)
 
@@ -79,7 +81,10 @@ def verify_code(request):
         Verifies the user via code.
     """
     try:
-        verification = models.Verification.objects.get(user__username=request.POST["username"], code=request.POST["code"])
+        verification = models.Verification.objects.get(**{
+            "user__%s" %User.USERNAME_FIELD: request.POST["username"],
+            "code": request.POST["code"]
+        })
         if not verification.recovery:
             return json_response(False, error="Incorrect verification code.")
         verification.verified = True
@@ -109,11 +114,14 @@ def reset_password(request):
         Resets the password of the user.
     """
     try:
-        verification = models.Verification.objects.get(user__username=request.POST["username"], code=request.POST["code"])
+        verification = models.Verification.objects.get(**{
+            "user__%s" %User.USERNAME_FIELD: request.POST["username"],
+            "code": request.POST["code"]
+        })
         if not verification.recovery:
             return HttpResponseNotFound()
         verification.recovery = False
-        verification.user.set_password(request.POST["newPassword"])
+        verification.user.set_password(request.POST["new_password"])
         verification.user.save()
     except models.Verification.DoesNotExist:
         return json_response(False, error="Incorrect verification code.")
@@ -124,8 +132,8 @@ def change_password(request):
     """
         changes the password of the user
     """
-    if authenticate(username=request.user.username, password=request.POST["oldPassword"]):
-        request.user.set_password(request.POST["newPassword"])
+    if request.user.check_password(request.POST["old_password"]):
+        request.user.set_password(request.POST["new_password"])
         login(request, request.user)
         return json_response(True)
     return json_response(False, error="Invalid password")
@@ -134,49 +142,43 @@ def sign_in(request):
     """
         logs the user in
     """
-    if len(re.findall("^[a-zA-Z0-9]{3,}@[a-zA-Z0-9]{3,}\.[a-zA-Z0-9]{2,}$", request.POST["username"])) == 1:
-        if User.objects.filter(email=request.POST["username"]).exists():
-            username = User.objects.get(email=request.POST["username"]).username
-        else:
-            return json_response(False, error="Incorrect username/email or password")
-    else:
-        username = request.POST["username"].title().strip()
-    user = authenticate(username=username, password=request.POST["password"])
+    user = authenticate(username=request.POST["username"], password=request.POST["password"])
     if user:
-        if request.POST.get("keepSignedIn", "false") == "false":
+        if request.POST.get("keep_signed_in", "false") == "false":
             request.session.set_expiry(0)
         login(request, user)
         return json_response(True)
-    return json_response(False, error="Incorrect username/email or password")
+    return json_response(False, error="Incorrect credentials")
 
 def sign_up(request):
     """
         creates a new user
     """
-    if User.objects.filter(email=request.POST["email"]).exists():
-        return json_response(False, error="This email is not available")
     try:
-        user = User(
-            first_name=request.POST["firstName"].title().strip(),                                                                                                                                                                                       last_name=request.POST["lastName"].title().strip(),
-            email=request.POST["email"].lower().strip(),
-            username=request.POST["username"].title().strip(),
-        )
-        user.set_password(request.POST["password"])
+        password = request.POST["password"]
+        keep_signed_in = request.POST.get("keep_signed_in", "false")
+        del request.POST["password"]
+        try:
+            del request.POST["keep_signed_in"]
+        except:
+            pass
+        user = User(**request.POST)
+        user.set_password(password)
         user.save()
-        if request.POST["keepSignedIn"] == "false":
+        if keep_signed_in == "false":
             request.session.set_expiry(0)
         login(request, user)
         return json_response(True)
     except IntegrityError as e:
         print(e)
-        return json_response(False, error="This username is not available")
+        return json_response(False, error=e.args)
 
 @ensure_signed_in
 def authenticate_user(request):
     """
         authenticates the usser
     """
-    if authenticate(username=request.user.username, password=request.POST["password"]):
+    if request.user.check_password(request.POST["password"]):
         return json_response(True)
     else:
         return json_response(False)
