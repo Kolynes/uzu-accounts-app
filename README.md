@@ -98,42 +98,42 @@ axios.post("/accounts/authenticate/", {
 
 #### 5. reset-password
 ````javascript
-	axios.post("/accounts/reset-password/", {
-		username: "",		// field value used for authentication as set by user_model.USERNAME_FIELD
-		code: "",			// verification code. This comes from send-verification-code 
-		newPassword: "",
-	})
+axios.post("/accounts/reset-password/", {
+	username: "",		// field value used for authentication as set by user_model.USERNAME_FIELD
+	code: "",			// verification code. This comes from send-verification-code 
+	new_password: "",
+})
 ````
 
 
 #### 6. change-password
 ````javascript
-	axios.post("/accounts/change-password/", {
-		new_password: "",
-		old_password: ""
-	})
+axios.post("/accounts/change-password/", {
+	new_password: "",
+	old_password: ""
+})
 ````
 
 #### 7. send-verification-code
 ````javascript
-	axios.post("/accounts/send-verification-code/", {
-		username: "",		// optional username (will use request.user.username if a user is signed in when this field is not specified. Fails otherwise)
-		mode: "",			// (send || resend) optional mode (will use 'resend' by default, if set to 'send', the verification code is updated before sending) 
-	})
+axios.post("/accounts/send-verification-code/", {
+	username: "",		// optional username (will use request.user.username if a user is signed in when this field is not specified. Fails otherwise)
+	mode: "",			// (send || resend) optional mode (will use 'resend' by default, if set to 'send', the verification code is updated before sending) 
+})
 ````
 
 #### 8. send-verification-link
 ````javascript
-	axios.post("/accounts/send-verification-link/", {
-		username: "",		// optional username (will use request.user.username if a user is signed in when this field is not specified. Fails otherwise)
-		mode: "",			// (send || resend) optional mode (will use 'resend' by default, if set to 'send', the verification code is updated before sending) 
-	})
+axios.post("/accounts/send-verification-link/", {
+	username: "",		// optional username (will use request.user.username if a user is signed in when this field is not specified. Fails otherwise)
+	mode: "",			// (send || resend) optional mode (will use 'resend' by default, if set to 'send', the verification code is updated before sending) 
+})
 ````
 
 #### 9. verify-code
 ````javascript
-	axios.post("/accounts/verify-code/", {
-		username: "",		
-		code: "",			
-	})
+axios.post("/accounts/verify-code/", {
+	username: "",		
+	code: "",			
+})
 ````
