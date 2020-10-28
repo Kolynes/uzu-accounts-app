@@ -1,7 +1,10 @@
+from AccountsApp.models import TwoFactorTokens
 from django.http import HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate, login, logout
+from django.http import request
 from . import models
+from .mails import send_two_factor_token
 from .utils import code_generator
 from .utils.shortcuts import json_response
 from .utils.decorators import ensure_signed_in
@@ -143,12 +146,38 @@ def sign_in(request):
         logs the user in
     """
     user = authenticate(username=request.POST["username"], password=request.POST["password"])
-    if user:
-        if request.POST.get("keep_signed_in", "false") == "false":
-            request.session.set_expiry(0)
-        login(request, user)
-        return json_response(True)
-    return json_response(False, error="Incorrect credentials")
+    if not user:
+        return json_response(False, error="Incorrect credentials")
+    if request.POST.get("keep_signed_in", "false") == "false":
+        request.session.set_expiry(0)
+    if (hasattr(user, "two_factor_enabled") 
+        and getattr(user, "two_factor_enabled") == True):
+        token = models.TwoFactorTokens.objects.create(user=user)
+        duration = settings.ACCOUNTS_APP["2fa_duration"]
+        code = token.code
+        send_two_factor_token(user, code, duration)
+        signature = token.signature
+        return  json_response(True, 
+            {
+                "signature": signature, 
+                "expiry": duration
+            }
+        )
+    login(request, user)
+    return json_response(True)
+
+
+def verify_2fa(request):
+    code = request.POST["token"]
+    signature = request.POST["signature"]
+    try:
+        token = models.TwoFactorTokens.Find(code=code, signature=signature)
+    except TwoFactorTokens.DoesNotExist:
+        return json_response(False, error="Invalid token")
+    if token.is_expired():
+        return json_response(False, error="expired token")
+    login(request, token.user)
+    return json_response(True)
 
 def sign_up(request):
     """
