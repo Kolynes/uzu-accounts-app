@@ -175,8 +175,10 @@ def verify_2fa(request):
     except TwoFactorTokens.DoesNotExist:
         return json_response(False, error="Invalid token")
     if token.is_expired():
+        token.delete()
         return json_response(False, error="expired token")
     login(request, token.user)
+    token.delete()
     return json_response(True)
 
 def sign_up(request):
