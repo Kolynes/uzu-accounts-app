@@ -8,6 +8,7 @@ from .mails import send_two_factor_token
 from .utils import code_generator
 from .utils.shortcuts import json_response
 from .utils.decorators import ensure_signed_in
+from .signals import SignedUp
 from .api import get_verification_code, get_verification_link
 import logging
 from threading import Thread
@@ -199,6 +200,7 @@ def sign_up(request):
         if keep_signed_in == "false":
             request.session.set_expiry(0)
         login(request, user)
+        SignedUp.send('signedup', request=request, user=user)
         return json_response(True)
     except IntegrityError as e:
         print(e)
