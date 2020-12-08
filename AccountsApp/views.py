@@ -189,10 +189,9 @@ def sign_up(request: request.HttpRequest):
     """
     try:
         password = request.POST["password"]
-        keep_signed_in = request.POST.get("keep_signed_in", "false")
         payload = request.POST.copy()
+        keep_signed_in = payload.pop("keep_signed_in", "false")
         payload.pop("password")
-        payload.pop("keep_signed_in")
         user = User(**request.POST)
         user.set_password(password)
         user.save()
