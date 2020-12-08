@@ -183,18 +183,13 @@ def verify_2fa(request):
     token.delete()
     return json_response(True)
 
-def sign_up(request):
+def sign_up(request: request.HttpRequest):
     """
         creates a new user
     """
     try:
         password = request.POST["password"]
         keep_signed_in = request.POST.get("keep_signed_in", "false")
-        del request.POST["password"]
-        try:
-            del request.POST["keep_signed_in"]
-        except:
-            pass
         user = User(**request.POST)
         user.set_password(password)
         user.save()
