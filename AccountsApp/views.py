@@ -1,6 +1,7 @@
 from AccountsApp.models import TwoFactorTokens
 from django.http import HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.contrib.auth import authenticate, login, logout
 from django.http import request
 from . import models
@@ -202,7 +203,7 @@ def sign_up(request):
         login(request, user)
         SignedUp.send('signedup', request=request, user=user)
         return json_response(True)
-    except User.IntegrityError as e:
+    except IntegrityError as e:
         print(e)
         return json_response(False, error=e.args)
 
