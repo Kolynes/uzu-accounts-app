@@ -188,6 +188,7 @@ def sign_up(request: request.HttpRequest):
         creates a new user
     """
     try:
+        print(request.POST)
         payload = request.POST.copy()
         keep_signed_in = payload.pop("keep_signed_in", "false")
         password = payload.pop("password")
