@@ -202,7 +202,7 @@ def sign_up(request):
         login(request, user)
         SignedUp.send('signedup', request=request, user=user)
         return json_response(True)
-    except IntegrityError as e:
+    except User.IntegrityError as e:
         print(e)
         return json_response(False, error=e.args)
 
