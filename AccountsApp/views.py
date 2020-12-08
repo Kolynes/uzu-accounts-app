@@ -1,3 +1,4 @@
+from django.db.utils import Error
 from AccountsApp.models import TwoFactorTokens
 from django.http import HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth import get_user_model
@@ -188,7 +189,6 @@ def sign_up(request: request.HttpRequest):
         creates a new user
     """
     try:
-        print(request.POST)
         payload = request.POST.copy()
         keep_signed_in = payload.pop("keep_signed_in", "false")
         password = payload.pop("password")
@@ -201,6 +201,9 @@ def sign_up(request: request.HttpRequest):
         SignedUp.send('signedup', request=request, user=user)
         return json_response(True)
     except IntegrityError as e:
+        print(e)
+        return json_response(False, error=e.args)
+    except Exception as e:
         print(e)
         return json_response(False, error=e.args)
 
