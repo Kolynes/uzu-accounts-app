@@ -1,15 +1,23 @@
+from django.core.mail import send_mail
+from django.db.utils import Error
+from AccountsApp.models import TwoFactorTokens
 from django.http import HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.contrib.auth import authenticate, login, logout
+from django.http import request
 from . import models
+from .mails import send_two_factor_token
 from .utils import code_generator
 from .utils.shortcuts import json_response
 from .utils.decorators import ensure_signed_in
+from .signals import SignedUp
 from .api import get_verification_code, get_verification_link
 import logging
 from threading import Thread
 from django.conf import settings
 from django.core import signing
+from posixpath import join as urljoin
 import re
 
 logger = logging.getLogger("AccountRecoveryApp.views")
@@ -19,7 +27,7 @@ def create_verification(request):
     """
         creates a verification object and attaches it to the user
     """
-    username = request.POST.get("username")
+    username = request.POST.get(User.USERNAME_FIELD, None)
     if username:
         try:
             user = User.objects.get(**{
@@ -43,7 +51,12 @@ def send_verification_mail(verification, subject, message, error):
         sends verification mail utility. Used in lambda functions for extra readability
     """
     try:
-        verification.user.email_user(subject, message)
+        send_mail(
+            subject=subject, 
+            message=message, 
+            recipient_list=[verification.user.email],
+            from_email=None
+        )
     except Exception as e:
         logger.error(error %e)
 
@@ -69,7 +82,12 @@ def send_verification_link(request):
     verification = create_verification(request)
     if type(verification) is not models.Verification:
         return verification
-    message = "Please follow the link below to verify your account\n %s/%s/verify-link/?u=%s&c=%s" %(request.META["HTTP_HOST"], settings.ACCOUNTS_APP["base_url"], verification.username_signature, verification.code_signature)
+    url = urljoin(
+        request.META["HTTP_HOST"],
+        settings.ACCOUNTS_APP["base_url"],
+        "verify-link/"
+    )
+    message = "Please follow the link below to verify your account\n %s?u=%s&c=%s" %(url, verification.username_signature, verification.code_signature)
     verification.recovery = True
     verification.save()
     error = "Failed to send verification code to %s <%s> by email\n %s" %(verification.user.__dict__[User.USERNAME_FIELD], verification.user.__dict__[User.get_email_field_name()], "%s")
@@ -142,34 +160,69 @@ def sign_in(request):
     """
         logs the user in
     """
-    user = authenticate(username=request.POST["username"], password=request.POST["password"])
-    if user:
-        if request.POST.get("keep_signed_in", "false") == "false":
-            request.session.set_expiry(0)
-        login(request, user)
-        return json_response(True)
-    return json_response(False, error="Incorrect credentials")
+    user = authenticate(
+        **{
+            User.USERNAME_FIELD: request.POST[User.USERNAME_FIELD], 
+            "password": request.POST["password"]
+        }
+    )
+    if not user:
+        return json_response(False, error="Incorrect credentials")
+    if request.POST.get("keep_signed_in", "false") == "false":
+        request.session.set_expiry(0)
+    if (hasattr(user, "two_factor_enabled") 
+        and getattr(user, "two_factor_enabled") == True):
+        token = models.TwoFactorTokens.objects.create(user=user)
+        duration = settings.ACCOUNTS_APP["2fa_duration"]
+        code = token.code
+        send_two_factor_token(user, code, duration)
+        signature = token.signature
+        return  json_response(True, 
+            {
+                "signature": signature, 
+                "expiry": duration
+            }
+        )
+    login(request, user)
+    return json_response(True)
 
-def sign_up(request):
+
+def verify_2fa(request):
+    code = request.POST["token"]
+    signature = request.POST["signature"]
+    try:
+        token = models.TwoFactorTokens.Find(code=code, signature=signature)
+    except TwoFactorTokens.DoesNotExist:
+        return json_response(False, error="Invalid token")
+    if token.is_expired():
+        token.delete()
+        return json_response(False, error="expired token")
+    login(request, token.user)
+    token.delete()
+    return json_response(True)
+
+def sign_up(request: request.HttpRequest):
     """
         creates a new user
     """
     try:
-        password = request.POST["password"]
-        keep_signed_in = request.POST.get("keep_signed_in", "false")
-        del request.POST["password"]
-        try:
-            del request.POST["keep_signed_in"]
-        except:
-            pass
-        user = User(**request.POST)
+        payload = request.POST.copy().dict()
+        keep_signed_in = payload.pop("keep_signed_in", "false")
+        password = payload.pop("password")
+        user = User(**payload)
         user.set_password(password)
         user.save()
         if keep_signed_in == "false":
             request.session.set_expiry(0)
         login(request, user)
+        print("before signal")
+        SignedUp.send('signedup', request=request, user=user)
+        print("After signal")
         return json_response(True)
     except IntegrityError as e:
+        print(e)
+        return json_response(False, error=e.args)
+    except Exception as e:
         print(e)
         return json_response(False, error=e.args)
 

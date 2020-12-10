@@ -3,3 +3,5 @@ db.sqlite3
 manage.py
 dist/
 README.html
+build/
+uzu_accounts_app.egg-info/
