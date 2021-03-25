@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name = 'uzu-accounts-app',          
     packages = find_packages(exclude=("Accounts")),  
-    version = '1.1.1',      
+    version = '2.1.1',      
     license='MIT',        
     description = 'uzu-accounts-app is a generic django application tailored to Single Page Applications that abstracts user authentication and verification from the rest of your project.',
     long_description_content_type = "text/markdown",
